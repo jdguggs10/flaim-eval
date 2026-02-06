@@ -21,11 +21,24 @@ export interface CapturedToolCall {
 }
 
 /**
+ * Server-side logs from Cloudflare Workers Observability (optional enrichment).
+ */
+export type ServerLogs = {
+  [workerName: string]: Array<{
+    timestamp: string;
+    status: number;
+    wall_time_ms: number;
+    message?: string;
+  }>;
+};
+
+/**
  * Per-scenario trace artifact — written to runs/<run_id>/<scenario_id>.json
  */
 export interface TraceArtifact {
   schema_version: "1.0";
   run_id: string;
+  trace_id: string;
   scenario_id: string;
   timestamp_utc: string;
   model: string;
@@ -44,6 +57,7 @@ export interface TraceArtifact {
     };
   };
   duration_ms: number;
+  server_logs?: ServerLogs;
   notes: string[];
 }
 
@@ -57,6 +71,7 @@ export interface RunManifest {
   mcp_url: string;
   scenario_count: number;
   scenarios: string[];
+  traces: Array<{ scenario_id: string; trace_id: string }>;
   instructions_files: string[];
 }
 
@@ -73,6 +88,7 @@ export interface RunSummary {
   total_tokens: { input: number; output: number; total: number };
   scenarios: Array<{
     id: string;
+    trace_id: string;
     status: "ok" | "error";
     tool_calls: string[];
     expected_tools: string[];

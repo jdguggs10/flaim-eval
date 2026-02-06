@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "eval": "tsx src/run.ts",
-    "bootstrap": "tsx src/bootstrap.ts"
+    "enrich": "tsx src/enrich.ts",
+    "bootstrap": "tsx src/bootstrap.ts",
+    "test": "node --import tsx --test src/__tests__/*.test.ts",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.4.0",

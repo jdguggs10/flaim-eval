@@ -5,14 +5,30 @@ import type {
   CapturedToolCall,
 } from "./types.js";
 import { loadInstructions } from "./scenarios.js";
+import { isCloudflareConfigured, fetchWorkerLogs } from "./cloudflare-logs.js";
 
 const DEFAULT_MODEL = "gpt-5-mini-2025-08-07";
+const LOG_ENRICHMENT_ATTEMPTS = 15;
+const LOG_ENRICHMENT_RETRY_DELAY_MS = 5000;
 
 interface RunnerConfig {
   model?: string;
   mcpUrl: string;
   accessToken: string;
   runId: string;
+  traceId: string;
+}
+
+export function buildMcpHeaders(
+  accessToken: string,
+  runId: string,
+  traceId: string
+): Record<string, string> {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    "X-Flaim-Eval-Run": runId,
+    "X-Flaim-Eval-Trace": traceId,
+  };
 }
 
 /**
@@ -69,6 +85,10 @@ function extractFinalText(
     .join("\n");
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Run a single scenario against OpenAI with Flaim MCP tools.
  */
@@ -90,6 +110,7 @@ export async function runScenario(
 
   input.push({ role: "user", content: scenario.prompt });
 
+  const scenarioStart = new Date();
   const startTime = Date.now();
 
   const response = await openai.responses.create({
@@ -100,7 +121,7 @@ export async function runScenario(
         type: "mcp",
         server_url: config.mcpUrl,
         server_label: "flaim",
-        headers: { Authorization: `Bearer ${config.accessToken}` },
+        headers: buildMcpHeaders(config.accessToken, config.runId, config.traceId),
         require_approval: "never",
       },
     ],
@@ -117,6 +138,7 @@ export async function runScenario(
   const artifact: TraceArtifact = {
     schema_version: "1.0",
     run_id: config.runId,
+    trace_id: config.traceId,
     scenario_id: scenario.id,
     timestamp_utc: new Date().toISOString(),
     model,
@@ -137,6 +159,47 @@ export async function runScenario(
     duration_ms: durationMs,
     notes: [],
   };
+
+  // Optionally enrich with Cloudflare worker logs
+  if (isCloudflareConfigured()) {
+    const scenarioEnd = new Date();
+    let lastError: Error | null = null;
+    let enrichmentAttempts = 0;
+
+    for (let attempt = 1; attempt <= LOG_ENRICHMENT_ATTEMPTS; attempt++) {
+      enrichmentAttempts = attempt;
+      try {
+        const serverLogs = await fetchWorkerLogs(
+          scenarioStart,
+          scenarioEnd,
+          config.runId,
+          config.traceId
+        );
+        if (Object.keys(serverLogs).length > 0) {
+          artifact.server_logs = serverLogs;
+          break;
+        }
+      } catch (err) {
+        lastError = err as Error;
+      }
+
+      if (attempt < LOG_ENRICHMENT_ATTEMPTS) {
+        await sleep(LOG_ENRICHMENT_RETRY_DELAY_MS);
+      }
+    }
+
+    if (!artifact.server_logs) {
+      if (lastError) {
+        artifact.notes.push(
+          `Server log enrichment failed after ${enrichmentAttempts} attempts: ${lastError.message}`
+        );
+      } else {
+        artifact.notes.push(
+          `Server log enrichment returned no events for time window after ${enrichmentAttempts} attempts`
+        );
+      }
+    }
+  }
 
   return artifact;
 }

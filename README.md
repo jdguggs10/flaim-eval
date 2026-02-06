@@ -14,7 +14,44 @@ cp .env.example .env       # add OPENAI_API_KEY
 npm run bootstrap           # one-time OAuth setup (opens browser)
 npm run eval                # run all scenarios
 npm run eval who_is_on_my_roster  # run one scenario
+npm run enrich -- <run_id> [trace_id]  # re-fetch delayed Cloudflare logs only
 ```
+
+## Trace artifact layout
+
+Each scenario writes into a per-trace directory:
+
+```text
+runs/<run_id>/
+  manifest.json
+  summary.json
+  trace_<scenario>_<idx>/
+    trace.json
+    logs/
+      fantasy-mcp.json
+      espn-client.json
+      yahoo-client.json
+      auth-worker.json
+```
+
+`trace.json` includes:
+- `run_id`
+- `trace_id`
+- tool calls and final model text
+- optional `server_logs` keyed by worker name
+
+## Observability contract
+
+The runner sends both headers on each MCP question:
+- `X-Flaim-Eval-Run`
+- `X-Flaim-Eval-Trace`
+
+Workers should propagate these headers and emit structured JSON logs containing:
+- `service`
+- `phase`
+- `run_id`
+- `trace_id`
+- `correlation_id`
 
 ## Design doc
 
