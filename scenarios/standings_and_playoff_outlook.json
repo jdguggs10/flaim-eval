@@ -1,0 +1,7 @@
+{
+  "id": "standings_and_playoff_outlook",
+  "prompt": "What are the current standings in my league? How is my team doing?",
+  "description": "Should call get_user_session then get_standings",
+  "expected_tools": ["get_user_session", "get_standings"],
+  "tags": ["espn", "happy-path"]
+}

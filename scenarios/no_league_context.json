@@ -1,0 +1,7 @@
+{
+  "id": "no_league_context",
+  "prompt": "What should I do with my team?",
+  "description": "Adversarial — vague question with no sport/league context. Model should call get_user_session to discover leagues before making assumptions.",
+  "expected_tools": ["get_user_session"],
+  "tags": ["adversarial", "vague"]
+}

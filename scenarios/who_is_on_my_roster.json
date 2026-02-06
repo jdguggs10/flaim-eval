@@ -1,0 +1,7 @@
+{
+  "id": "who_is_on_my_roster",
+  "prompt": "Who is on my roster?",
+  "description": "Basic happy path — should call get_user_session then get_roster",
+  "expected_tools": ["get_user_session", "get_roster"],
+  "tags": ["espn", "happy-path"]
+}

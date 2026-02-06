@@ -1,0 +1,7 @@
+{
+  "id": "cross_sport_confusion",
+  "prompt": "How many touchdowns did my quarterback throw last week?",
+  "description": "Adversarial — football question. Model should identify the right sport or ask for clarification, not blindly use baseball defaults.",
+  "expected_tools": ["get_user_session"],
+  "tags": ["adversarial", "cross-sport"]
+}

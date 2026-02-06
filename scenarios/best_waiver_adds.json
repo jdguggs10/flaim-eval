@@ -1,0 +1,7 @@
+{
+  "id": "best_waiver_adds",
+  "prompt": "Who are the best free agents available in my league right now?",
+  "description": "Should call get_user_session then get_free_agents",
+  "expected_tools": ["get_user_session", "get_free_agents"],
+  "tags": ["espn", "happy-path"]
+}
