@@ -36,21 +36,8 @@ function extractToolCalls(
       calls.push({
         tool_name: item.name,
         args: JSON.parse(item.arguments ?? "{}"),
-        result_preview: "",
+        result_preview: item.output ? previewText(item.output) : "",
       });
-    }
-    if (item.type === "mcp_call_result") {
-      // Match back to the last call with same name
-      const lastCall = [...calls].reverse().find(
-        (c) => c.result_preview === ""
-      );
-      if (lastCall) {
-        const outputText =
-          typeof item.output === "string"
-            ? item.output
-            : JSON.stringify(item.output);
-        lastCall.result_preview = previewText(outputText);
-      }
     }
   }
 
