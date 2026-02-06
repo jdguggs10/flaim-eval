@@ -17,6 +17,7 @@ export interface CapturedToolCall {
   tool_name: string;
   args: Record<string, unknown>;
   result_preview: string;
+  result_full: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export interface TraceArtifact {
     response_id: string;
     tool_calls: CapturedToolCall[];
     final_text: string;
+    raw_output: unknown[];
     usage: {
       input_tokens: number;
       output_tokens: number;
@@ -55,7 +57,7 @@ export interface RunManifest {
   mcp_url: string;
   scenario_count: number;
   scenarios: string[];
-  instructions_file: string | null;
+  instructions_files: string[];
 }
 
 /**
@@ -75,6 +77,7 @@ export interface RunSummary {
     tool_calls: string[];
     expected_tools: string[];
     tools_match: boolean;
+    expected_tools_hit: boolean;
     duration_ms: number;
     error?: string;
   }>;

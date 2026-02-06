@@ -33,10 +33,12 @@ function extractToolCalls(
 
   for (const item of output) {
     if (item.type === "mcp_call") {
+      const full = item.output ?? "";
       calls.push({
         tool_name: item.name,
         args: JSON.parse(item.arguments ?? "{}"),
-        result_preview: item.output ? previewText(item.output) : "",
+        result_preview: full ? previewText(full) : "",
+        result_full: full,
       });
     }
   }
@@ -125,6 +127,7 @@ export async function runScenario(
       response_id: response.id,
       tool_calls: toolCalls,
       final_text: finalText,
+      raw_output: response.output as unknown[],
       usage: {
         input_tokens: response.usage?.input_tokens ?? 0,
         output_tokens: response.usage?.output_tokens ?? 0,

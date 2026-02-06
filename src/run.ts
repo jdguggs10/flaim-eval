@@ -50,7 +50,7 @@ async function main() {
     mcp_url: MCP_URL,
     scenario_count: scenarios.length,
     scenarios: scenarios.map((s) => s.id),
-    instructions_file: scenarios[0]?.instructions || null,
+    instructions_files: [...new Set(scenarios.map((s) => s.instructions).filter(Boolean))] as string[],
   };
   fs.writeFileSync(
     path.join(runDir, "manifest.json"),
@@ -90,10 +90,13 @@ async function main() {
       const toolsMatch =
         JSON.stringify(toolNames) ===
         JSON.stringify(scenario.expected_tools);
+      const expectedToolsHit = scenario.expected_tools.every(
+        (t) => toolNames.includes(t)
+      );
 
       console.log(`  Tools called: ${toolNames.join(" → ") || "(none)"}`);
       console.log(`  Expected:     ${scenario.expected_tools.join(" → ")}`);
-      console.log(`  Match: ${toolsMatch ? "✓" : "✗"}`);
+      console.log(`  Exact match:  ${toolsMatch ? "✓" : "✗"}${!toolsMatch && expectedToolsHit ? "  (expected tools hit ✓)" : ""}`);
       console.log(`  Tokens: ${artifact.llm_response.usage.total_tokens}`);
       console.log(`  Duration: ${artifact.duration_ms}ms`);
       console.log(`  Final: ${artifact.llm_response.final_text.slice(0, 100)}...`);
@@ -106,6 +109,7 @@ async function main() {
         tool_calls: toolNames,
         expected_tools: scenario.expected_tools,
         tools_match: toolsMatch,
+        expected_tools_hit: expectedToolsHit,
         duration_ms: artifact.duration_ms,
       });
 
@@ -121,6 +125,7 @@ async function main() {
         tool_calls: [],
         expected_tools: scenario.expected_tools,
         tools_match: false,
+        expected_tools_hit: false,
         duration_ms: 0,
         error: msg,
       });
