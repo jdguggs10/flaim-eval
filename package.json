@@ -1,0 +1,20 @@
+{
+  "name": "flaim-eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx src/run.ts",
+    "bootstrap": "tsx src/bootstrap.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0",
+    "open": "^10.1.0",
+    "openai": "^5.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}
