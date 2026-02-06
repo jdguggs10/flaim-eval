@@ -33,7 +33,7 @@ export type ServerLogs = {
 };
 
 /**
- * Per-scenario trace artifact — written to runs/<run_id>/<scenario_id>.json
+ * Per-scenario trace artifact — written to runs/<run_id>/<trace_id>/trace.json
  */
 export interface TraceArtifact {
   schema_version: "1.0";

@@ -35,7 +35,7 @@ runs/<run_id>/
   manifest.json
   summary.json
   acceptance-summary.json            # optional, when formal validation is run
-  trace_<scenario>_<idx>/
+  <trace_id>/                           # e.g. trace_who_is_on_my_roster_000
     trace.json
     logs/
       fantasy-mcp.json
