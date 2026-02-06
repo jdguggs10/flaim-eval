@@ -1,0 +1,51 @@
+# Troubleshooting
+
+## `eval` succeeds but logs are empty
+
+Checks:
+
+1. Verify Cloudflare env vars are set in `.env`.
+2. Verify token has Workers observability query permissions.
+3. Run:
+   - `npm run enrich -- <run_id>`
+
+Cause is often indexing delay, not missing propagation.
+
+## Only `fantasy-mcp` logs appear
+
+Checks:
+
+1. Confirm trace-aware code is deployed on downstream workers.
+2. Confirm `X-Flaim-Eval-Trace` is propagated through gateway routing.
+3. Confirm query uses `"$metadata.traceId"` filter (not message-only filter).
+
+## Missing one expected downstream worker
+
+This can be valid if the scenario never routed to that platform.
+
+Use `trace.json` tool args to determine expected platform:
+
+- If no tool call used `platform: "yahoo"`, missing `yahoo-client` is expected.
+- If no tool call used `platform: "espn"`, missing `espn-client` is expected.
+
+## OAuth failures (`401` / refresh errors)
+
+1. Re-run `npm run bootstrap`.
+2. Ensure `FLAIM_CLIENT_ID` and `FLAIM_REFRESH_TOKEN` are current in `.env`.
+3. Confirm target auth base URL is correct (`FLAIM_AUTH_BASE_URL`).
+
+## Cloudflare query errors
+
+Common causes:
+
+1. Wrong account ID.
+2. Insufficient API token permissions.
+3. Invalid filter operation/key combinations.
+
+Use a narrow timeframe and test one worker first.
+
+## Cross-trace contamination suspicion
+
+1. Search all logs for other trace IDs.
+2. Search for mismatched `eval=<run_id>` tags.
+3. Re-run `enrich` to refresh stale files before concluding contamination.

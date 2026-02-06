@@ -25,6 +25,7 @@ test("fetchWorkerLogs queries all workers with ms timeframe and dedupes results"
   const calls: Array<{
     workerName: string;
     needle?: string;
+    traceId?: string;
     timeframe: { from?: unknown; to?: unknown };
   }> = [];
 
@@ -42,10 +43,12 @@ test("fetchWorkerLogs queries all workers with ms timeframe and dedupes results"
     const filters = body.parameters?.filters || [];
     const workerName = filters.find((f) => f.key === "$metadata.service")?.value || "";
     const needle = filters.find((f) => f.key === "$metadata.message")?.value;
+    const traceId = filters.find((f) => f.key === "$metadata.traceId")?.value;
 
     calls.push({
       workerName,
       needle,
+      traceId,
       timeframe: body.timeframe || { from: undefined, to: undefined },
     });
 
@@ -56,6 +59,9 @@ test("fetchWorkerLogs queries all workers with ms timeframe and dedupes results"
     });
 
     let events: unknown[] = [];
+    if (workerName === "fantasy-mcp" && traceId === "trace_who_is_on_my_roster_000") {
+      events = [makeEvent("f-trace-1", "/mcp")];
+    }
     if (workerName === "fantasy-mcp") {
       if (needle?.includes("trace_who_is_on_my_roster_000")) {
         events = [makeEvent("shared-1", `trace_id=trace_who_is_on_my_roster_000`)];
@@ -64,8 +70,14 @@ test("fetchWorkerLogs queries all workers with ms timeframe and dedupes results"
         events = [makeEvent("shared-1", "eval=2026-02-06T18-10-04Z")];
       }
     }
+    if (workerName === "espn-client" && traceId === "trace_who_is_on_my_roster_000") {
+      events = [makeEvent("espn-trace-1", "")];
+    }
     if (workerName === "espn-client" && needle?.includes("trace_who_is_on_my_roster_000")) {
       events = [makeEvent("espn-1", `{"trace_id":"trace_who_is_on_my_roster_000"}`)];
+    }
+    if (workerName === "auth-worker" && traceId === "trace_who_is_on_my_roster_000") {
+      events = [makeEvent("auth-trace-1", "")];
     }
 
     return Response.json({
@@ -90,7 +102,11 @@ test("fetchWorkerLogs queries all workers with ms timeframe and dedupes results"
   const workersSeen = new Set(calls.map((call) => call.workerName));
   assert.deepEqual([...workersSeen].sort(), [...WORKER_NAMES].sort());
 
-  assert.ok(calls.length >= WORKER_NAMES.length * 3);
+  assert.ok(calls.length >= WORKER_NAMES.length * 4);
+  assert.ok(
+    calls.filter((call) => call.traceId === "trace_who_is_on_my_roster_000").length >=
+      WORKER_NAMES.length
+  );
   assert.ok(
     calls.every(
       (call) =>
@@ -99,9 +115,9 @@ test("fetchWorkerLogs queries all workers with ms timeframe and dedupes results"
     )
   );
 
-  assert.equal(Object.keys(logs).length, 2);
-  assert.equal(logs["fantasy-mcp"]?.length, 1);
-  assert.equal(logs["espn-client"]?.length, 1);
+  assert.equal(Object.keys(logs).length, 3);
+  assert.equal(logs["fantasy-mcp"]?.length, 2);
+  assert.equal(logs["espn-client"]?.length, 2);
+  assert.equal(logs["auth-worker"]?.length, 1);
   assert.ok(!logs["yahoo-client"]);
-  assert.ok(!logs["auth-worker"]);
 });

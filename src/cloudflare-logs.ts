@@ -81,7 +81,7 @@ async function queryWorkerLogs(
   workerName: string,
   startTime: Date,
   endTime: Date,
-  messageNeedle?: string
+  extraFilters: Array<{ key: string; operation: string; type: string; value: string }> = []
 ): Promise<ObservabilityEvent[]> {
   const from = startTime.getTime() - TIME_PADDING_MS;
   const to = endTime.getTime() + TIME_PADDING_MS;
@@ -95,14 +95,7 @@ async function queryWorkerLogs(
     },
   ];
 
-  if (messageNeedle) {
-    filters.push({
-      key: "$metadata.message",
-      operation: "includes",
-      type: "string",
-      value: messageNeedle,
-    });
-  }
+  filters.push(...extraFilters);
 
   const body = {
     queryId: `flaim-eval-${workerName}`,
@@ -165,6 +158,16 @@ async function queryWorkerLogsForTrace(
   evalRunId: string,
   traceId: string
 ): Promise<ObservabilityEvent[]> {
+  // Primary path: Cloudflare stores request trace header as structured metadata.
+  const traceEvents = await queryWorkerLogs(config, workerName, startTime, endTime, [
+    {
+      key: "$metadata.traceId",
+      operation: "eq",
+      type: "string",
+      value: traceId,
+    },
+  ]);
+
   const needles = [...buildTraceNeedles(traceId)];
 
   // Legacy fallback for fantasy-mcp logs that may only carry eval run tag.
@@ -172,13 +175,20 @@ async function queryWorkerLogsForTrace(
     needles.push(`eval=${evalRunId}`);
   }
 
-  const batches = await Promise.all(
+  const needleBatches = await Promise.all(
     needles.map((needle) =>
-      queryWorkerLogs(config, workerName, startTime, endTime, needle)
+      queryWorkerLogs(config, workerName, startTime, endTime, [
+        {
+          key: "$metadata.message",
+          operation: "includes",
+          type: "string",
+          value: needle,
+        },
+      ])
     )
   );
 
-  return dedupeEvents(batches.flat());
+  return dedupeEvents([...traceEvents, ...needleBatches.flat()]);
 }
 
 function toLogEvent(event: ObservabilityEvent): {
