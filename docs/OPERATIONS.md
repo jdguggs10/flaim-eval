@@ -47,11 +47,18 @@ Optional single trace:
 npm run enrich -- <run_id> <trace_id>
 ```
 
+3. Evaluate run acceptance:
+
+```bash
+npm run accept -- <run_id>
+```
+
 ## What to inspect per run
 
 1. `runs/<run_id>/summary.json`
 2. Each `runs/<run_id>/<trace_id>/trace.json`
 3. `runs/<run_id>/<trace_id>/logs/*.json`
+4. `runs/<run_id>/acceptance-summary.json`
 
 ## Expected worker coverage by scenario behavior
 
@@ -65,3 +72,11 @@ Worker presence is trace-dependent; not every trace should contain all four work
 ## Operational expectation: enrichment timing
 
 Cloudflare indexing can lag. Treat immediate post-`eval` logs as provisional and run `enrich` before final review.
+
+## Isolation + retry defaults
+
+- Strict trace isolation is enabled by default. Legacy run-level fallback is disabled unless `FLAIM_EVAL_ALLOW_RUN_FALLBACK=1`.
+- Re-enrichment retries are coverage-aware and tunable:
+  - `FLAIM_EVAL_REENRICH_ATTEMPTS` (default `6`)
+  - `FLAIM_EVAL_REENRICH_DELAY_MS` (default `15000`)
+  - `FLAIM_EVAL_REENRICH_WINDOW_EXPAND_MS` (default `30000`)

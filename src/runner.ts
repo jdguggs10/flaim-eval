@@ -5,7 +5,8 @@ import type {
   CapturedToolCall,
 } from "./types.js";
 import { loadInstructions } from "./scenarios.js";
-import { isCloudflareConfigured, fetchWorkerLogs } from "./cloudflare-logs.js";
+import { allowRunFallback, isCloudflareConfigured, fetchWorkerLogs } from "./cloudflare-logs.js";
+import { getActualWorkers, getMissingWorkers, inferExpectedWorkers } from "./coverage.js";
 
 const DEFAULT_MODEL = "gpt-5-mini-2025-08-07";
 const LOG_ENRICHMENT_ATTEMPTS = 15;
@@ -136,7 +137,7 @@ export async function runScenario(
   const finalText = extractFinalText(response.output);
 
   const artifact: TraceArtifact = {
-    schema_version: "1.0",
+    schema_version: "1.1",
     run_id: config.runId,
     trace_id: config.traceId,
     scenario_id: scenario.id,
@@ -199,6 +200,22 @@ export async function runScenario(
         );
       }
     }
+
+    const expectedWorkers = inferExpectedWorkers(artifact);
+    const actualWorkers = getActualWorkers(artifact);
+    const missingWorkers = getMissingWorkers(expectedWorkers, actualWorkers);
+    artifact.enrichment = {
+      mode: "initial",
+      attempts: enrichmentAttempts,
+      strict_trace_isolation: !allowRunFallback(),
+      expected_workers: expectedWorkers,
+      actual_workers: actualWorkers,
+      missing_workers: missingWorkers,
+      generated_at: new Date().toISOString(),
+    };
+    artifact.notes.push(
+      `Coverage expected=[${expectedWorkers.join(",")}] actual=[${actualWorkers.join(",")}] missing=[${missingWorkers.join(",")}]`
+    );
   }
 
   return artifact;

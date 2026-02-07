@@ -8,7 +8,7 @@
  * POST /accounts/{account_id}/workers/observability/telemetry/query
  */
 
-import type { ServerLogs } from "./types.js";
+import type { ServerLogEvent, ServerLogs } from "./types.js";
 
 export const WORKER_NAMES = [
   "fantasy-mcp",
@@ -23,23 +23,30 @@ interface CloudflareConfig {
   apiToken: string;
 }
 
-export function isCloudflareConfigured(): boolean {
-  return !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN);
-}
-
-function getConfig(): CloudflareConfig {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-  if (!accountId || !apiToken) {
-    throw new Error("CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are required");
-  }
-  return { accountId, apiToken };
+interface ObservabilitySource {
+  service?: string;
+  phase?: string;
+  run_id?: string;
+  trace_id?: string;
+  correlation_id?: string;
+  tool?: string;
+  sport?: string;
+  league_id?: string;
+  path?: string;
+  method?: string;
+  status?: string;
+  message?: string;
+  duration_ms?: number;
+  [key: string]: unknown;
 }
 
 interface ObservabilityEvent {
   timestamp?: number;
+  source?: ObservabilitySource;
   $workers?: {
     wallTimeMs?: number;
+    outcome?: string;
+    requestId?: string;
     event?: {
       response?: { status?: number };
     };
@@ -47,6 +54,9 @@ interface ObservabilityEvent {
   };
   $metadata?: {
     id?: string;
+    requestId?: string;
+    traceId?: string;
+    trigger?: string;
     message?: string;
     service?: string;
     type?: string;
@@ -68,12 +78,63 @@ interface TelemetryQueryResponse {
   };
 }
 
+export function isCloudflareConfigured(): boolean {
+  return !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN);
+}
+
+export function allowRunFallback(): boolean {
+  return process.env.FLAIM_EVAL_ALLOW_RUN_FALLBACK === "1";
+}
+
+function getConfig(): CloudflareConfig {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+  if (!accountId || !apiToken) {
+    throw new Error("CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are required");
+  }
+  return { accountId, apiToken };
+}
+
 export function buildTraceNeedles(traceId: string): string[] {
-  return [
-    `\"trace_id\":\"${traceId}\"`,
-    `trace_id=${traceId}`,
-    traceId,
-  ];
+  return [`\"trace_id\":\"${traceId}\"`, `trace_id=${traceId}`];
+}
+
+function parseNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+function getEventTraceId(event: ObservabilityEvent): string | undefined {
+  return event.$metadata?.traceId || event.source?.trace_id;
+}
+
+function hasMatchingTrace(event: ObservabilityEvent, traceId: string): boolean {
+  const eventTrace = getEventTraceId(event);
+  return eventTrace === traceId;
+}
+
+function dedupeEvents(events: ObservabilityEvent[]): ObservabilityEvent[] {
+  const seen = new Set<string>();
+  const deduped: ObservabilityEvent[] = [];
+
+  for (const event of events) {
+    const key = event.$metadata?.id
+      ? `id:${event.$metadata.id}`
+      : `fallback:${event.timestamp || ""}|${event.$metadata?.requestId || ""}|${event.$metadata?.message || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(event);
+  }
+
+  return deduped;
 }
 
 async function queryWorkerLogs(
@@ -134,22 +195,6 @@ async function queryWorkerLogs(
   return data.result?.events?.events ?? [];
 }
 
-function dedupeEvents(events: ObservabilityEvent[]): ObservabilityEvent[] {
-  const seen = new Set<string>();
-  const deduped: ObservabilityEvent[] = [];
-
-  for (const event of events) {
-    const key = event.$metadata?.id
-      ? `id:${event.$metadata.id}`
-      : `fallback:${event.timestamp || ""}|${event.$metadata?.message || ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(event);
-  }
-
-  return deduped;
-}
-
 async function queryWorkerLogsForTrace(
   config: CloudflareConfig,
   workerName: string,
@@ -158,8 +203,7 @@ async function queryWorkerLogsForTrace(
   evalRunId: string,
   traceId: string
 ): Promise<ObservabilityEvent[]> {
-  // Primary path: Cloudflare stores request trace header as structured metadata.
-  const traceEvents = await queryWorkerLogs(config, workerName, startTime, endTime, [
+  const strictTraceEvents = await queryWorkerLogs(config, workerName, startTime, endTime, [
     {
       key: "$metadata.traceId",
       operation: "eq",
@@ -168,15 +212,9 @@ async function queryWorkerLogsForTrace(
     },
   ]);
 
-  const needles = [...buildTraceNeedles(traceId)];
-
-  // Legacy fallback for fantasy-mcp logs that may only carry eval run tag.
-  if (workerName === "fantasy-mcp") {
-    needles.push(`eval=${evalRunId}`);
-  }
-
-  const needleBatches = await Promise.all(
-    needles.map((needle) =>
+  const traceNeedles = buildTraceNeedles(traceId);
+  const traceNeedleBatches = await Promise.all(
+    traceNeedles.map((needle) =>
       queryWorkerLogs(config, workerName, startTime, endTime, [
         {
           key: "$metadata.message",
@@ -188,22 +226,65 @@ async function queryWorkerLogsForTrace(
     )
   );
 
-  return dedupeEvents([...traceEvents, ...needleBatches.flat()]);
+  const strictEvents = dedupeEvents([...strictTraceEvents, ...traceNeedleBatches.flat()]).filter((event) =>
+    hasMatchingTrace(event, traceId)
+  );
+
+  if (!allowRunFallback() || workerName !== "fantasy-mcp") {
+    return strictEvents;
+  }
+
+  const runFallbackEvents = await queryWorkerLogs(config, workerName, startTime, endTime, [
+    {
+      key: "$metadata.message",
+      operation: "includes",
+      type: "string",
+      value: `eval=${evalRunId}`,
+    },
+  ]);
+
+  const fallbackEvents = dedupeEvents(runFallbackEvents).filter((event) => {
+    const eventTrace = getEventTraceId(event);
+    if (!eventTrace) {
+      return true;
+    }
+    return eventTrace === traceId;
+  });
+
+  return dedupeEvents([...strictEvents, ...fallbackEvents]);
 }
 
-function toLogEvent(event: ObservabilityEvent): {
-  timestamp: string;
-  status: number;
-  wall_time_ms: number;
-  message?: string;
-} {
+function toLogEvent(event: ObservabilityEvent): ServerLogEvent {
+  const statusFromWorkers = event.$workers?.event?.response?.status;
+  const statusFromSource = parseNumber(event.source?.status);
+  const status = typeof statusFromWorkers === "number" ? statusFromWorkers : statusFromSource ?? null;
+
+  const durationFromSource = parseNumber(event.source?.duration_ms);
+
   return {
-    timestamp: event.timestamp
-      ? new Date(event.timestamp).toISOString()
-      : new Date().toISOString(),
-    status: event.$workers?.event?.response?.status ?? 0,
+    timestamp: event.timestamp ? new Date(event.timestamp).toISOString() : new Date().toISOString(),
+    status,
     wall_time_ms: event.$workers?.wallTimeMs ?? 0,
-    message: event.$metadata?.message,
+    message: event.$metadata?.message || event.source?.message,
+
+    service: event.source?.service || event.$metadata?.service,
+    phase: typeof event.source?.phase === "string" ? event.source.phase : undefined,
+    run_id: typeof event.source?.run_id === "string" ? event.source.run_id : undefined,
+    trace_id: getEventTraceId(event),
+    correlation_id:
+      typeof event.source?.correlation_id === "string" ? event.source.correlation_id : undefined,
+    tool: typeof event.source?.tool === "string" ? event.source.tool : undefined,
+    sport: typeof event.source?.sport === "string" ? event.source.sport : undefined,
+    league_id: typeof event.source?.league_id === "string" ? event.source.league_id : undefined,
+    path: typeof event.source?.path === "string" ? event.source.path : undefined,
+    method: typeof event.source?.method === "string" ? event.source.method : undefined,
+    outcome: typeof event.$workers?.outcome === "string" ? event.$workers.outcome : undefined,
+    request_id:
+      event.$metadata?.requestId ||
+      (typeof event.$workers?.requestId === "string" ? event.$workers.requestId : undefined),
+    trigger: typeof event.$metadata?.trigger === "string" ? event.$metadata.trigger : undefined,
+    status_text: typeof event.source?.status === "string" ? event.source.status : undefined,
+    duration_ms: durationFromSource,
   };
 }
 

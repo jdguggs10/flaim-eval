@@ -11,6 +11,18 @@ Checks:
 
 Cause is often indexing delay, not missing propagation.
 
+## Trace contamination in per-trace artifacts
+
+Checks:
+
+1. Confirm `FLAIM_EVAL_ALLOW_RUN_FALLBACK` is unset or `0`.
+2. Re-run enrichment:
+   - `npm run enrich -- <run_id>`
+3. Run acceptance:
+   - `npm run accept -- <run_id>`
+
+If contamination remains in strict mode, inspect worker trace propagation.
+
 ## Only `fantasy-mcp` logs appear
 
 Checks:

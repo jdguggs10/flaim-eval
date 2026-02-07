@@ -33,7 +33,10 @@ Additional fields (`tool`, `status`, `duration_ms`, `sport`, `league_id`) are re
 
 1. `"$metadata.service" == <worker>`
 2. Primary filter: `"$metadata.traceId" == <trace_id>`
-3. Legacy fallback: message includes trace/run needles
+3. Message fallback: trace needles only (`trace_id` forms)
+4. Optional legacy fallback: run-level message needle (`eval=<run_id>`) only when `FLAIM_EVAL_ALLOW_RUN_FALLBACK=1`
+
+Strict trace post-filtering is always applied to prevent contamination.
 
 Timeframe is sent as epoch milliseconds and responses are read from `result.events.events`.
 
@@ -45,6 +48,16 @@ Per trace:
 - `runs/<run_id>/<trace_id>/logs/<worker>.json`
 
 `server_logs` inside `trace.json` is optional; traces remain valid when no logs are present.
+
+Each normalized log event preserves core compatibility fields:
+
+- `timestamp`, `status`, `wall_time_ms`, `message`
+
+And may include structured fields from observability payloads:
+
+- `service`, `phase`, `run_id`, `trace_id`, `correlation_id`
+- `tool`, `sport`, `league_id`, `path`, `method`
+- `request_id`, `trigger`, `outcome`, `duration_ms`, `status_text`
 
 ## Distillation rule
 

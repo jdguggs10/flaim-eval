@@ -21,6 +21,7 @@ npm run bootstrap
 npm run eval
 npm run eval <scenario_id>
 npm run enrich -- <run_id> [trace_id]
+npm run accept -- <run_id>
 npm test
 npm run type-check
 ```

@@ -38,21 +38,47 @@ For each trace:
 
 ## Step 6: Emit acceptance artifact
 
-Write:
+Generate:
 
 - `runs/<run_id>/acceptance-summary.json`
 
-Include:
+Command:
+
+```bash
+npm run accept -- <run_id>
+```
+
+Acceptance output includes:
 
 1. Run completion status
 2. Per-trace coverage
 3. Isolation/contamination result
 4. Total captured log events
 5. Final pass/fail conclusion
+6. `policy_version`, decisions applied, fail/warn reason arrays
 
 ## Pass criteria
 
 1. All scenarios complete (`errored = 0`).
-2. All traces have expected worker coverage for observed routing.
+2. All traces have required worker coverage for observed routing:
+   - always required: `fantasy-mcp`
+   - required when `get_user_session` was called: `auth-worker`
 3. No cross-trace contamination detected.
 4. Re-enrichment succeeds for all traces.
+
+## Hybrid policy details
+
+Hard fail:
+
+1. Contamination (`TRACE_CONTAMINATION` or run ID mismatch)
+2. Missing `fantasy-mcp`
+3. Missing `auth-worker` when `get_user_session` appears
+
+Warn-only:
+
+1. Missing `espn-client` / `yahoo-client` after retries
+
+Warns escalate to hard fail if either threshold is met:
+
+1. `>=2` traces with downstream missing-worker warnings
+2. `>20%` of traces with downstream missing-worker warnings

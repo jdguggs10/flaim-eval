@@ -2,16 +2,44 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { fetchWorkerLogs, isCloudflareConfigured } from "./cloudflare-logs.js";
+import { allowRunFallback, fetchWorkerLogs, isCloudflareConfigured } from "./cloudflare-logs.js";
 import { readTraceArtifact, writeTraceArtifact } from "./artifacts.js";
+import { getActualWorkers, getMissingWorkers, inferExpectedWorkers } from "./coverage.js";
 import type { RunManifest, TraceArtifact } from "./types.js";
 
 const REENRICH_LOOKBACK_MS = 2 * 60 * 1000;
 const REENRICH_LOOKAHEAD_MS = 5 * 60 * 1000;
+const DEFAULT_REENRICH_ATTEMPTS = 6;
+const DEFAULT_REENRICH_DELAY_MS = 15000;
+const DEFAULT_WINDOW_EXPAND_MS = 30000;
 
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.floor(parsed);
+  }
+  return fallback;
+}
+
+function getReenrichAttempts(): number {
+  return parsePositiveInt(process.env.FLAIM_EVAL_REENRICH_ATTEMPTS, DEFAULT_REENRICH_ATTEMPTS);
+}
+
+function getReenrichDelayMs(): number {
+  return parsePositiveInt(process.env.FLAIM_EVAL_REENRICH_DELAY_MS, DEFAULT_REENRICH_DELAY_MS);
+}
+
+function getWindowExpandMs(): number {
+  return parsePositiveInt(process.env.FLAIM_EVAL_REENRICH_WINDOW_EXPAND_MS, DEFAULT_WINDOW_EXPAND_MS);
 }
 
 export function buildReenrichWindow(trace: Pick<TraceArtifact, "timestamp_utc" | "duration_ms">): {
@@ -57,21 +85,97 @@ export function resolveTraceIds(
     .sort();
 }
 
-async function enrichTrace(runDir: string, traceId: string): Promise<void> {
-  const artifact = readTraceArtifact(runDir, traceId);
-  const { start, end } = buildReenrichWindow(artifact);
-  const logs = await fetchWorkerLogs(start, end, artifact.run_id, artifact.trace_id);
-  const workerCount = Object.keys(logs).length;
-  const now = new Date().toISOString();
+type EnrichResult = {
+  attempts: number;
+  expectedWorkers: string[];
+  actualWorkers: string[];
+  missingWorkers: string[];
+};
 
-  if (workerCount > 0) {
-    artifact.server_logs = logs;
-    artifact.notes.push(`Re-enriched worker logs at ${now} (${workerCount} workers).`);
-  } else {
-    artifact.notes.push(`Re-enrichment found no worker logs at ${now}.`);
+async function enrichTrace(runDir: string, traceId: string): Promise<EnrichResult> {
+  const artifact = readTraceArtifact(runDir, traceId);
+  const expectedWorkers = inferExpectedWorkers(artifact);
+  const maxAttempts = getReenrichAttempts();
+  const delayMs = getReenrichDelayMs();
+  const expandMs = getWindowExpandMs();
+
+  const baseWindow = buildReenrichWindow(artifact);
+  let attemptsUsed = 0;
+  let selectedLogs = artifact.server_logs || {};
+  let selectedActualWorkers = getActualWorkers({ ...artifact, server_logs: selectedLogs });
+  let selectedMissingWorkers = getMissingWorkers(expectedWorkers, selectedActualWorkers);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    attemptsUsed = attempt;
+    const expandBy = (attempt - 1) * expandMs;
+    const start = new Date(baseWindow.start.getTime() - expandBy);
+    const end = new Date(baseWindow.end.getTime() + expandBy);
+
+    const logs = await fetchWorkerLogs(start, end, artifact.run_id, artifact.trace_id);
+    const actualWorkers = Object.keys(logs).sort();
+    const missingWorkers = getMissingWorkers(expectedWorkers, actualWorkers);
+
+    const selectedCoverage = selectedActualWorkers.filter((w) => expectedWorkers.includes(w)).length;
+    const attemptCoverage = actualWorkers.filter((w) => expectedWorkers.includes(w)).length;
+
+    const shouldSelect =
+      attemptCoverage > selectedCoverage ||
+      (attemptCoverage === selectedCoverage && actualWorkers.length > selectedActualWorkers.length);
+
+    if (shouldSelect) {
+      selectedLogs = logs;
+      selectedActualWorkers = actualWorkers;
+      selectedMissingWorkers = missingWorkers;
+    }
+
+    if (missingWorkers.length === 0) {
+      selectedLogs = logs;
+      selectedActualWorkers = actualWorkers;
+      selectedMissingWorkers = missingWorkers;
+      break;
+    }
+
+    if (attempt < maxAttempts) {
+      await sleep(delayMs);
+    }
   }
 
+  const now = new Date().toISOString();
+  const workerCount = Object.keys(selectedLogs).length;
+
+  if (workerCount > 0) {
+    artifact.server_logs = selectedLogs;
+    artifact.notes.push(
+      `Re-enriched worker logs at ${now} (${workerCount} workers, attempts=${attemptsUsed}).`
+    );
+  } else {
+    artifact.notes.push(
+      `Re-enrichment found no worker logs at ${now} (attempts=${attemptsUsed}).`
+    );
+  }
+
+  artifact.enrichment = {
+    mode: "reenrich",
+    attempts: attemptsUsed,
+    strict_trace_isolation: !allowRunFallback(),
+    expected_workers: expectedWorkers,
+    actual_workers: selectedActualWorkers,
+    missing_workers: selectedMissingWorkers,
+    generated_at: now,
+  };
+
+  artifact.notes.push(
+    `Coverage expected=[${expectedWorkers.join(",")}] actual=[${selectedActualWorkers.join(",")}] missing=[${selectedMissingWorkers.join(",")}]`
+  );
+
   writeTraceArtifact(runDir, artifact);
+
+  return {
+    attempts: attemptsUsed,
+    expectedWorkers,
+    actualWorkers: selectedActualWorkers,
+    missingWorkers: selectedMissingWorkers,
+  };
 }
 
 export async function runCli() {
@@ -102,9 +206,11 @@ export async function runCli() {
   for (const id of traceIds) {
     process.stdout.write(`Re-enriching ${id}... `);
     try {
-      await enrichTrace(runDir, id);
+      const result = await enrichTrace(runDir, id);
       completed += 1;
-      process.stdout.write("ok\n");
+      process.stdout.write(
+        `ok (attempts=${result.attempts}, missing=${result.missingWorkers.length ? result.missingWorkers.join(",") : "none"})\n`
+      );
     } catch (error) {
       failed += 1;
       process.stdout.write(`failed (${(error as Error).message})\n`);

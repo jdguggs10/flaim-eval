@@ -8,7 +8,8 @@
     "enrich": "tsx src/enrich.ts",
     "bootstrap": "tsx src/bootstrap.ts",
     "test": "node --import tsx --test src/__tests__/*.test.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "accept": "tsx src/accept.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.0",

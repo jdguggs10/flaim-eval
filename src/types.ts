@@ -21,22 +21,57 @@ export interface CapturedToolCall {
 }
 
 /**
+ * Enriched per-trace coverage metadata.
+ */
+export interface EnrichmentMetadata {
+  mode: "initial" | "reenrich";
+  attempts: number;
+  strict_trace_isolation: boolean;
+  expected_workers: string[];
+  actual_workers: string[];
+  missing_workers: string[];
+  generated_at: string;
+}
+
+/**
+ * Normalized server log event from Cloudflare Workers Observability.
+ * Backward compatible keys are preserved; richer fields are additive.
+ */
+export interface ServerLogEvent {
+  timestamp: string;
+  status: number | null;
+  wall_time_ms: number;
+  message?: string;
+
+  service?: string;
+  phase?: string;
+  run_id?: string;
+  trace_id?: string;
+  correlation_id?: string;
+  tool?: string;
+  sport?: string;
+  league_id?: string;
+  path?: string;
+  method?: string;
+  outcome?: string;
+  request_id?: string;
+  trigger?: string;
+  status_text?: string;
+  duration_ms?: number;
+}
+
+/**
  * Server-side logs from Cloudflare Workers Observability (optional enrichment).
  */
 export type ServerLogs = {
-  [workerName: string]: Array<{
-    timestamp: string;
-    status: number;
-    wall_time_ms: number;
-    message?: string;
-  }>;
+  [workerName: string]: ServerLogEvent[];
 };
 
 /**
  * Per-scenario trace artifact — written to runs/<run_id>/<trace_id>/trace.json
  */
 export interface TraceArtifact {
-  schema_version: "1.0";
+  schema_version: "1.0" | "1.1";
   run_id: string;
   trace_id: string;
   scenario_id: string;
@@ -58,6 +93,7 @@ export interface TraceArtifact {
   };
   duration_ms: number;
   server_logs?: ServerLogs;
+  enrichment?: EnrichmentMetadata;
   notes: string[];
 }
 
