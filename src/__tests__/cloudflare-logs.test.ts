@@ -71,6 +71,7 @@ test("fetchWorkerLogs enforces strict trace filtering and maps structured source
       message: string,
       extra: {
         traceId?: string;
+        runId?: string;
         sourceStatus?: string;
       } = {}
     ) => ({
@@ -78,7 +79,7 @@ test("fetchWorkerLogs enforces strict trace filtering and maps structured source
       source: {
         service: workerName,
         phase: "tool_end",
-        run_id: "2026-02-06T18-10-04Z",
+        run_id: extra.runId || "2026-02-06T18-10-04Z",
         trace_id: extra.traceId || "trace_who_is_on_my_roster_000",
         correlation_id: "cid-1",
         tool: "get_roster",
@@ -103,6 +104,7 @@ test("fetchWorkerLogs enforces strict trace filtering and maps structured source
       events = [
         makeEvent("f-trace-1", "/mcp"),
         makeEvent("f-cross-1", "/mcp cross", { traceId: "trace_other_999" }),
+        makeEvent("f-old-run-1", "/mcp old run", { runId: "2026-02-06T18-05-00Z" }),
       ];
     }
     if (workerName === "fantasy-mcp") {
@@ -191,6 +193,7 @@ test("fetchWorkerLogs enforces strict trace filtering and maps structured source
 
   const fantasyMessages = (logs["fantasy-mcp"] || []).map((event) => event.message);
   assert.equal(fantasyMessages.some((message) => message?.includes("cross")), false);
+  assert.equal(fantasyMessages.some((message) => message?.includes("old run")), false);
 
   const espnEventWithSourceStatus = (logs["espn-client"] || []).find(
     (event) => event.status_text === "true"

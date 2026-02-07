@@ -47,7 +47,7 @@ async function main() {
   fs.mkdirSync(runDir, { recursive: true });
   const scenarioTraces = scenarios.map((scenario, index) => ({
     scenario_id: scenario.id,
-    trace_id: createTraceId(scenario.id, index),
+    trace_id: createTraceId(scenario.id, index, runId),
   }));
 
   // Write manifest
@@ -72,7 +72,7 @@ async function main() {
   let totalTokens = { input: 0, output: 0, total: 0 };
 
   for (const [index, scenario] of scenarios.entries()) {
-    const traceId = scenarioTraces[index]?.trace_id || createTraceId(scenario.id, index);
+    const traceId = scenarioTraces[index]?.trace_id || createTraceId(scenario.id, index, runId);
     console.log(`--- ${scenario.id} ---`);
     console.log(`  Trace:  ${traceId}`);
     console.log(`  Prompt: "${scenario.prompt}"`);

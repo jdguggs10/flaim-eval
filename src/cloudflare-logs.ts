@@ -116,9 +116,42 @@ function getEventTraceId(event: ObservabilityEvent): string | undefined {
   return event.$metadata?.traceId || event.source?.trace_id;
 }
 
+function getEventRunId(event: ObservabilityEvent): string | undefined {
+  return event.source?.run_id;
+}
+
 function hasMatchingTrace(event: ObservabilityEvent, traceId: string): boolean {
   const eventTrace = getEventTraceId(event);
   return eventTrace === traceId;
+}
+
+function parseRunIdsFromMessage(message: string | undefined): string[] {
+  if (!message) return [];
+  const matches = [...message.matchAll(/eval=([A-Za-z0-9:T.-]+Z)/g)];
+  return matches.map((match) => match[1]);
+}
+
+function hasMatchingRun(event: ObservabilityEvent, evalRunId: string): boolean {
+  const runCandidates = new Set<string>();
+
+  const sourceRun = getEventRunId(event);
+  if (sourceRun) {
+    runCandidates.add(sourceRun);
+  }
+
+  for (const runId of parseRunIdsFromMessage(event.$metadata?.message)) {
+    runCandidates.add(runId);
+  }
+
+  for (const runId of parseRunIdsFromMessage(event.source?.message)) {
+    runCandidates.add(runId);
+  }
+
+  if (runCandidates.size === 0) {
+    return false;
+  }
+
+  return [...runCandidates].every((runId) => runId === evalRunId);
 }
 
 function dedupeEvents(events: ObservabilityEvent[]): ObservabilityEvent[] {
@@ -226,8 +259,8 @@ async function queryWorkerLogsForTrace(
     )
   );
 
-  const strictEvents = dedupeEvents([...strictTraceEvents, ...traceNeedleBatches.flat()]).filter((event) =>
-    hasMatchingTrace(event, traceId)
+  const strictEvents = dedupeEvents([...strictTraceEvents, ...traceNeedleBatches.flat()]).filter(
+    (event) => hasMatchingTrace(event, traceId) && hasMatchingRun(event, evalRunId)
   );
 
   if (!allowRunFallback() || workerName !== "fantasy-mcp") {
@@ -244,6 +277,10 @@ async function queryWorkerLogsForTrace(
   ]);
 
   const fallbackEvents = dedupeEvents(runFallbackEvents).filter((event) => {
+    if (!hasMatchingRun(event, evalRunId)) {
+      return false;
+    }
+
     const eventTrace = getEventTraceId(event);
     if (!eventTrace) {
       return true;
