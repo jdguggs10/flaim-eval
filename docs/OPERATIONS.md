@@ -53,6 +53,12 @@ npm run enrich -- <run_id> <trace_id>
 npm run accept -- <run_id>
 ```
 
+4. Generate a human-readable markdown report:
+
+```bash
+npm run report -- <run_id>
+```
+
 ## What to inspect per run
 
 1. `runs/<run_id>/summary.json`

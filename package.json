@@ -6,6 +6,7 @@
   "scripts": {
     "eval": "tsx src/run.ts",
     "enrich": "tsx src/enrich.ts",
+    "report": "tsx src/report.ts",
     "bootstrap": "tsx src/bootstrap.ts",
     "test": "node --import tsx --test src/__tests__/*.test.ts",
     "type-check": "tsc --noEmit",
