@@ -27,6 +27,7 @@ export function buildMcpHeaders(
 ): Record<string, string> {
   return {
     Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json, text/event-stream",
     "X-Flaim-Eval-Run": runId,
     "X-Flaim-Eval-Trace": traceId,
   };
