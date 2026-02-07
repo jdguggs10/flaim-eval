@@ -57,6 +57,18 @@ export function buildReenrichWindow(trace: Pick<TraceArtifact, "timestamp_utc" |
   return { start, end };
 }
 
+export function buildAttemptWindow(
+  baseWindow: { start: Date; end: Date },
+  attempt: number,
+  expandMs: number
+): { start: Date; end: Date } {
+  const expandBy = Math.max(0, attempt - 1) * Math.max(0, expandMs);
+  return {
+    start: new Date(baseWindow.start.getTime() - expandBy),
+    end: new Date(baseWindow.end.getTime() + expandBy),
+  };
+}
+
 function readManifest(runDir: string): RunManifest | null {
   const manifestPath = path.join(runDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
@@ -107,9 +119,7 @@ async function enrichTrace(runDir: string, traceId: string): Promise<EnrichResul
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     attemptsUsed = attempt;
-    const expandBy = (attempt - 1) * expandMs;
-    const start = new Date(baseWindow.start.getTime() - expandBy);
-    const end = new Date(baseWindow.end.getTime() + expandBy);
+    const { start, end } = buildAttemptWindow(baseWindow, attempt, expandMs);
 
     const logs = await fetchWorkerLogs(start, end, artifact.run_id, artifact.trace_id);
     const actualWorkers = Object.keys(logs).sort();
