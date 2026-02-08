@@ -2,6 +2,6 @@
   "id": "wrong_platform",
   "prompt": "Show my Sleeper fantasy football roster",
   "description": "Negative — requests unsupported platform (Sleeper). Model should explain only ESPN and Yahoo are supported.",
-  "expected_tools": ["get_user_session"],
+  "expected_tools": [],
   "tags": ["negative", "error-handling"]
 }
