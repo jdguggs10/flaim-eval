@@ -62,5 +62,7 @@ runs/<run_id>/
 
 ## Related design docs
 
-- Flaim scope/design reference:
-  - `/Users/ggugger/Code/flaim/docs/dev/mcp-eval-observability-scope.md`
+- Current cross-repo execution status:
+  - `../flaim/docs/dev/CURRENT-EXECUTION-STATE.md`
+- Historical scope/design reference:
+  - `../flaim/docs/archive/mcp-eval-observability-scope.md`

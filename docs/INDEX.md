@@ -12,7 +12,8 @@ Use this as the entry point for operating and extending the eval harness.
 ## Ownership boundary
 
 - `flaim-eval` owns detailed harness operations and runbooks.
-- `/Users/ggugger/Code/flaim/docs` keeps only short contract summaries and links.
+- `../flaim/docs` keeps only short contract summaries and links.
+- Cross-repo execution tracker lives at `../flaim/docs/dev/CURRENT-EXECUTION-STATE.md`.
 
 ## Quick command reference
 
