@@ -1,0 +1,7 @@
+{
+  "id": "ambiguous_multi_league",
+  "prompt": "Trade me a good player",
+  "description": "Negative — write operation not supported. Model should explain all tools are read-only.",
+  "expected_tools": ["get_user_session"],
+  "tags": ["negative", "adversarial"]
+}

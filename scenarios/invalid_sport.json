@@ -1,0 +1,7 @@
+{
+  "id": "invalid_sport",
+  "prompt": "Show me my curling league standings",
+  "description": "Negative — requests unsupported sport. Model should explain curling is not supported rather than calling tools with invalid sport.",
+  "expected_tools": ["get_user_session"],
+  "tags": ["negative", "error-handling"]
+}

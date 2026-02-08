@@ -1,0 +1,7 @@
+{
+  "id": "basketball_not_supported",
+  "prompt": "How is my fantasy basketball team doing this season?",
+  "description": "Negative — basketball handlers return NOT_SUPPORTED. Model should call tools and relay the error clearly.",
+  "expected_tools": ["get_user_session"],
+  "tags": ["negative", "error-handling", "basketball"]
+}
