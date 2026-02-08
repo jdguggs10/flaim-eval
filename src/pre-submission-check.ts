@@ -27,29 +27,19 @@ function readJson<T>(filePath: string): T {
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
 }
 
-function findLatestRun(): string {
-  const entries = fs
-    .readdirSync(RUNS_DIR, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
-    .sort();
-
-  if (entries.length === 0) {
-    fail("No runs found in runs/ directory. Run `npm run eval` first.");
-  }
-
-  return entries[entries.length - 1]!;
-}
-
 function countByTag(tag: string): number {
   return loadScenarios().filter((s) => s.tags.includes(tag)).length;
 }
 
 function main() {
+  const [, , runId] = process.argv;
+
+  if (!runId) {
+    fail("Usage: npm run presubmit -- <run_id>");
+  }
+
   const allScenarios = loadScenarios();
   const expectedCount = allScenarios.length;
-
-  const runId = findLatestRun();
   const runDir = path.join(RUNS_DIR, runId);
 
   const summaryPath = path.join(runDir, "summary.json");
