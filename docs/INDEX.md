@@ -14,6 +14,7 @@ Use this as the entry point for operating and extending the eval harness.
 - `flaim-eval` owns detailed harness operations and runbooks.
 - `../flaim/docs` keeps only short contract summaries and links.
 - Cross-repo execution tracker lives at `../flaim/docs/dev/CURRENT-EXECUTION-STATE.md`.
+- Historical flaim-side plans/investigations are externalized; pointer lives at `../flaim/docs/archive/README.md`.
 
 ## Quick command reference
 

@@ -65,4 +65,4 @@ runs/<run_id>/
 - Current cross-repo execution status:
   - `../flaim/docs/dev/CURRENT-EXECUTION-STATE.md`
 - Historical scope/design reference:
-  - `../flaim/docs/archive/mcp-eval-observability-scope.md`
+  - `../flaim/docs/archive/README.md`
