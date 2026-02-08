@@ -11,6 +11,14 @@ export interface TokenPair {
 }
 
 /**
+ * Return the eval API key from env if set, or null.
+ * When set, this bypasses OAuth entirely.
+ */
+export function getEvalApiKey(): string | null {
+  return process.env.FLAIM_EVAL_API_KEY || null;
+}
+
+/**
  * Read refresh token and client_id from .env
  */
 export function loadEnvCredentials(): {

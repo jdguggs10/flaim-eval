@@ -7,8 +7,7 @@ This document is the day-to-day runbook for `flaim-eval`.
 1. Node + npm available.
 2. `.env` configured:
    - `OPENAI_API_KEY`
-   - `FLAIM_CLIENT_ID`
-   - `FLAIM_REFRESH_TOKEN`
+   - **Either** `FLAIM_EVAL_API_KEY` (recommended) **or** `FLAIM_CLIENT_ID` + `FLAIM_REFRESH_TOKEN`
 3. Optional (for server logs):
    - `CLOUDFLARE_ACCOUNT_ID`
    - `CLOUDFLARE_API_TOKEN`
@@ -17,9 +16,10 @@ This document is the day-to-day runbook for `flaim-eval`.
 
 1. `npm install`
 2. `cp .env.example .env`
-3. `npm run bootstrap`
+3. Set `FLAIM_EVAL_API_KEY` in `.env` (get from project maintainer) — **done, skip bootstrap**.
 
-`bootstrap` registers a client, completes OAuth consent, and gives refresh credentials for headless eval runs.
+If you don't have an API key, fall back to OAuth:
+3b. `npm run bootstrap` — registers a client and completes OAuth consent via browser.
 
 ## Standard run flow
 

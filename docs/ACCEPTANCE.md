@@ -6,7 +6,7 @@ Use this protocol before declaring observability changes production-ready.
 
 1. `npm test`
 2. `npm run type-check`
-3. Verify `.env` has OpenAI + OAuth creds.
+3. Verify `.env` has OpenAI key + auth creds (`FLAIM_EVAL_API_KEY` or OAuth creds).
 4. Verify Cloudflare env vars are present for log validation.
 
 ## Step 2: Execute full run

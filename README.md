@@ -12,9 +12,14 @@ MCP eval harness and skill-development workspace for [Flaim](https://github.com/
 ```bash
 npm install
 cp .env.example .env
-# add OPENAI_API_KEY, FLAIM_REFRESH_TOKEN, FLAIM_CLIENT_ID
+# add OPENAI_API_KEY
 
-npm run bootstrap
+# Option A: API key (recommended — no browser needed)
+# Set FLAIM_EVAL_API_KEY in .env (get from project maintainer)
+
+# Option B: OAuth (requires browser for initial bootstrap)
+# npm run bootstrap
+
 npm run eval
 npm run eval who_is_on_my_roster
 npm run enrich -- <run_id> [trace_id]

@@ -42,6 +42,9 @@ Use `trace.json` tool args to determine expected platform:
 
 ## OAuth failures (`401` / refresh errors)
 
+**Recommended fix:** Set `FLAIM_EVAL_API_KEY` in `.env` to bypass OAuth entirely. The API key never expires and requires no browser interaction.
+
+If using OAuth:
 1. Re-run `npm run bootstrap`.
 2. Ensure `FLAIM_CLIENT_ID` and `FLAIM_REFRESH_TOKEN` are current in `.env`.
 3. Confirm target auth base URL is correct (`FLAIM_AUTH_BASE_URL`).

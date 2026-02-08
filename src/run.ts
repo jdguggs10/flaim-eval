@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadScenarios } from "./scenarios.js";
 import { runScenario } from "./runner.js";
-import { refreshAccessToken } from "./auth.js";
+import { getEvalApiKey, refreshAccessToken } from "./auth.js";
 import { isCloudflareConfigured } from "./cloudflare-logs.js";
 import { createTraceId } from "./trace.js";
 import { writeTraceArtifact } from "./artifacts.js";
@@ -31,14 +31,20 @@ async function main() {
   }
 
   // Get access token
-  console.log("Refreshing access token...");
+  const apiKey = getEvalApiKey();
   let accessToken: string;
-  try {
-    accessToken = await refreshAccessToken();
-    console.log("Token refreshed.\n");
-  } catch (err) {
-    console.error((err as Error).message);
-    process.exit(1);
+  if (apiKey) {
+    console.log("Using eval API key (no OAuth needed).\n");
+    accessToken = apiKey;
+  } else {
+    console.log("Refreshing access token...");
+    try {
+      accessToken = await refreshAccessToken();
+      console.log("Token refreshed.\n");
+    } catch (err) {
+      console.error((err as Error).message);
+      process.exit(1);
+    }
   }
 
   // Create run directory
