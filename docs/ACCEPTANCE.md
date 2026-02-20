@@ -76,7 +76,7 @@ Hard fail:
 
 Warn-only:
 
-1. Missing `espn-client` / `yahoo-client` after retries
+1. Missing `espn-client` / `yahoo-client` / `sleeper-client` after retries
 
 Warns escalate to hard fail if either threshold is met:
 

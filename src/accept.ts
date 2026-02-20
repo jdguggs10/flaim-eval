@@ -147,6 +147,10 @@ function assessTrace(trace: TraceArtifact): TraceAssessment {
     warnReasons.push("MISSING_YAHOO_CLIENT");
   }
 
+  if (expectedWorkers.includes("sleeper-client") && missingWorkers.includes("sleeper-client")) {
+    warnReasons.push("MISSING_SLEEPER_CLIENT");
+  }
+
   let totalEvents = 0;
   let traceMismatchCount = 0;
   let runMismatchCount = 0;
@@ -244,7 +248,11 @@ export async function runCli() {
         assessment.trace_id
       );
 
-      if (code === "MISSING_ESPN_CLIENT" || code === "MISSING_YAHOO_CLIENT") {
+      if (
+        code === "MISSING_ESPN_CLIENT" ||
+        code === "MISSING_YAHOO_CLIENT" ||
+        code === "MISSING_SLEEPER_CLIENT"
+      ) {
         hasDownstreamWarn = true;
       }
     }
@@ -269,7 +277,8 @@ export async function runCli() {
       trace_ids: assessments
         .filter((a) =>
           a.warn_reasons.includes("MISSING_ESPN_CLIENT") ||
-          a.warn_reasons.includes("MISSING_YAHOO_CLIENT")
+          a.warn_reasons.includes("MISSING_YAHOO_CLIENT") ||
+          a.warn_reasons.includes("MISSING_SLEEPER_CLIENT")
         )
         .map((a) => a.trace_id)
         .sort(),

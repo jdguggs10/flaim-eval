@@ -1,0 +1,8 @@
+{
+  "id": "sleeper_public_nba_matchups",
+  "prompt": "Use get_matchups with platform: sleeper, sport: basketball, league_id: 1284871999146979328, season_year: 2025, week: 5 and summarize this week's matchup results.",
+  "description": "Sleeper public fixture (NBA) — direct parameter routing to get_matchups with explicit week and no session lookup.",
+  "expected_tools": ["get_matchups"],
+  "instructions": "instructions/sleeper-public-direct.md",
+  "tags": ["sleeper", "basketball", "public-fixture", "happy-path"]
+}

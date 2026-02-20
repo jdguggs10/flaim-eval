@@ -407,6 +407,56 @@ test("accept escalates repeated downstream missing-worker warnings to failure", 
   fs.rmSync(runDir, { recursive: true, force: true });
 });
 
+test("accept escalates repeated sleeper downstream missing-worker warnings to failure", async () => {
+  const runId = `test-accept-sleeper-escalation-${Date.now()}`;
+  const traces: TraceArtifact[] = [
+    makeTrace({
+      run_id: runId,
+      trace_id: "trace_sleeper_escalate_000",
+      llm_response: {
+        response_id: "resp_1",
+        tool_calls: [{ tool_name: "get_league_info", args: { platform: "sleeper" }, result_preview: "", result_full: "" }],
+        final_text: "",
+        raw_output: [],
+        usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+      },
+      server_logs: {
+        "fantasy-mcp": [{ timestamp: "2026-02-07T00:00:00.000Z", status: 200, wall_time_ms: 1, run_id: runId }],
+      },
+    }),
+    makeTrace({
+      run_id: runId,
+      trace_id: "trace_sleeper_escalate_001",
+      llm_response: {
+        response_id: "resp_2",
+        tool_calls: [{ tool_name: "get_standings", args: { platform: "sleeper" }, result_preview: "", result_full: "" }],
+        final_text: "",
+        raw_output: [],
+        usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+      },
+      server_logs: {
+        "fantasy-mcp": [{ timestamp: "2026-02-07T00:00:00.000Z", status: 200, wall_time_ms: 1, run_id: runId }],
+      },
+    }),
+  ];
+
+  const runDir = writeRun(runId, traces);
+  await runAcceptExpectFail(runId);
+  const acceptance = readAcceptance(runDir);
+
+  assert.equal(acceptance.final_status, "fail");
+  assert.equal(
+    acceptance.warn_reasons.some((reason) => reason.code === "MISSING_SLEEPER_CLIENT"),
+    true
+  );
+  assert.equal(
+    acceptance.fail_reasons.some((reason) => reason.code === "DOWNSTREAM_COVERAGE_ESCALATION"),
+    true
+  );
+
+  fs.rmSync(runDir, { recursive: true, force: true });
+});
+
 test("accept fails when summary indicates errored scenarios", async () => {
   const runId = `test-accept-run-errors-${Date.now()}`;
   const trace = makeTrace({

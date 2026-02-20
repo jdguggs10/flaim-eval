@@ -19,6 +19,10 @@ export function inferExpectedWorkers(trace: TraceArtifact): string[] {
     expected.add("yahoo-client");
   }
 
+  if (toolCalls.some((call) => call.args?.platform === "sleeper")) {
+    expected.add("sleeper-client");
+  }
+
   return [...expected].sort();
 }
 

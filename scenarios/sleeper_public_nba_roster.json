@@ -1,0 +1,8 @@
+{
+  "id": "sleeper_public_nba_roster",
+  "prompt": "Use get_roster with platform: sleeper, sport: basketball, league_id: 1284871999146979328, season_year: 2025 and summarize the roster.",
+  "description": "Sleeper public fixture (NBA) — direct parameter routing to get_roster without session lookup.",
+  "expected_tools": ["get_roster"],
+  "instructions": "instructions/sleeper-public-direct.md",
+  "tags": ["sleeper", "basketball", "public-fixture", "happy-path"]
+}

@@ -36,10 +36,11 @@ test("inferExpectedWorkers returns deterministic worker set", () => {
     { tool_name: "get_user_session", args: {} },
     { tool_name: "get_roster", args: { platform: "espn" } },
     { tool_name: "get_matchups", args: { platform: "yahoo" } },
+    { tool_name: "get_league_info", args: { platform: "sleeper" } },
   ]);
 
   const expected = inferExpectedWorkers(trace);
-  assert.deepEqual(expected, ["auth-worker", "espn-client", "fantasy-mcp", "yahoo-client"]);
+  assert.deepEqual(expected, ["auth-worker", "espn-client", "fantasy-mcp", "sleeper-client", "yahoo-client"]);
 });
 
 test("getActualWorkers/getMissingWorkers compute coverage differences", () => {

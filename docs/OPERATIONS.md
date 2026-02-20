@@ -72,8 +72,9 @@ npm run report -- <run_id>
 - If `get_user_session` appears: `auth-worker`
 - If tool args include `platform: "espn"`: `espn-client`
 - If tool args include `platform: "yahoo"`: `yahoo-client`
+- If tool args include `platform: "sleeper"`: `sleeper-client`
 
-Worker presence is trace-dependent; not every trace should contain all four workers.
+Worker presence is trace-dependent; not every trace should contain all workers.
 
 ## Operational expectation: enrichment timing
 

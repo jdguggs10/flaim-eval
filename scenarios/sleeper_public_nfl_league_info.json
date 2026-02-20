@@ -1,0 +1,8 @@
+{
+  "id": "sleeper_public_nfl_league_info",
+  "prompt": "Use get_league_info with platform: sleeper, sport: football, league_id: 1180208192901685248, season_year: 2025 and summarize the league settings.",
+  "description": "Sleeper public fixture (NFL) — direct parameter routing to get_league_info without session lookup.",
+  "expected_tools": ["get_league_info"],
+  "instructions": "instructions/sleeper-public-direct.md",
+  "tags": ["sleeper", "football", "public-fixture", "happy-path"]
+}
