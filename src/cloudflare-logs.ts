@@ -14,6 +14,7 @@ export const WORKER_NAMES = [
   "fantasy-mcp",
   "espn-client",
   "yahoo-client",
+  "sleeper-client",
   "auth-worker",
 ];
 const TIME_PADDING_MS = 30000;

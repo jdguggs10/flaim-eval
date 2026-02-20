@@ -1,7 +1,7 @@
 {
   "id": "wrong_platform",
-  "prompt": "Show my Sleeper fantasy football roster",
-  "description": "Negative — requests unsupported platform (Sleeper). Model should explain only ESPN and Yahoo are supported.",
+  "prompt": "Show my CBS fantasy football roster",
+  "description": "Negative — requests unsupported platform (CBS). Model should explain only ESPN, Yahoo, and Sleeper are supported.",
   "expected_tools": [],
   "tags": ["negative", "error-handling"]
 }

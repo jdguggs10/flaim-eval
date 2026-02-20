@@ -12,7 +12,7 @@ This is the canonical observability contract between `flaim-eval` and Flaim work
 Headers must be preserved through:
 
 1. `fantasy-mcp` ingress
-2. `fantasy-mcp` -> `espn-client` / `yahoo-client`
+2. `fantasy-mcp` -> `espn-client` / `yahoo-client` / `sleeper-client`
 3. `fantasy-mcp` -> `auth-worker`
 
 ## Required structured fields in logs

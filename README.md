@@ -49,6 +49,7 @@ runs/<run_id>/
       fantasy-mcp.json
       espn-client.json
       yahoo-client.json
+      sleeper-client.json
       auth-worker.json
 ```
 

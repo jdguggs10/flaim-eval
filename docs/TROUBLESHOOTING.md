@@ -39,6 +39,7 @@ Use `trace.json` tool args to determine expected platform:
 
 - If no tool call used `platform: "yahoo"`, missing `yahoo-client` is expected.
 - If no tool call used `platform: "espn"`, missing `espn-client` is expected.
+- If no tool call used `platform: "sleeper"`, missing `sleeper-client` is expected.
 
 ## OAuth failures (`401` / refresh errors)
 
