@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { allowRunFallback, fetchWorkerLogs, isCloudflareConfigured } from "./cloudflare-logs.js";
 import { readTraceArtifact, writeTraceArtifact } from "./artifacts.js";
 import { getActualWorkers, getMissingWorkers, inferExpectedWorkers } from "./coverage.js";
+import { mergeServerLogs } from "./logs-merge.js";
 import type { RunManifest, TraceArtifact } from "./types.js";
 
 const REENRICH_LOOKBACK_MS = 2 * 60 * 1000;
@@ -122,26 +123,11 @@ async function enrichTrace(runDir: string, traceId: string): Promise<EnrichResul
     const { start, end } = buildAttemptWindow(baseWindow, attempt, expandMs);
 
     const logs = await fetchWorkerLogs(start, end, artifact.run_id, artifact.trace_id);
-    const actualWorkers = Object.keys(logs).sort();
-    const missingWorkers = getMissingWorkers(expectedWorkers, actualWorkers);
+    selectedLogs = mergeServerLogs(selectedLogs, logs);
+    selectedActualWorkers = Object.keys(selectedLogs).sort();
+    selectedMissingWorkers = getMissingWorkers(expectedWorkers, selectedActualWorkers);
 
-    const selectedCoverage = selectedActualWorkers.filter((w) => expectedWorkers.includes(w)).length;
-    const attemptCoverage = actualWorkers.filter((w) => expectedWorkers.includes(w)).length;
-
-    const shouldSelect =
-      attemptCoverage > selectedCoverage ||
-      (attemptCoverage === selectedCoverage && actualWorkers.length > selectedActualWorkers.length);
-
-    if (shouldSelect) {
-      selectedLogs = logs;
-      selectedActualWorkers = actualWorkers;
-      selectedMissingWorkers = missingWorkers;
-    }
-
-    if (missingWorkers.length === 0) {
-      selectedLogs = logs;
-      selectedActualWorkers = actualWorkers;
-      selectedMissingWorkers = missingWorkers;
+    if (selectedMissingWorkers.length === 0) {
       break;
     }
 

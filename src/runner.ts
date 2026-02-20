@@ -7,6 +7,7 @@ import type {
 import { loadInstructions } from "./scenarios.js";
 import { allowRunFallback, isCloudflareConfigured, fetchWorkerLogs } from "./cloudflare-logs.js";
 import { getActualWorkers, getMissingWorkers, inferExpectedWorkers } from "./coverage.js";
+import { mergeServerLogs } from "./logs-merge.js";
 
 const DEFAULT_MODEL = "gpt-5-mini-2025-08-07";
 const LOG_ENRICHMENT_ATTEMPTS = 15;
@@ -167,20 +168,24 @@ export async function runScenario(
     const scenarioEnd = new Date();
     let lastError: Error | null = null;
     let enrichmentAttempts = 0;
+    const expectedWorkers = inferExpectedWorkers(artifact);
+    let mergedLogs = artifact.server_logs || {};
+    let actualWorkers = getActualWorkers({ ...artifact, server_logs: mergedLogs });
+    let missingWorkers = getMissingWorkers(expectedWorkers, actualWorkers);
 
     for (let attempt = 1; attempt <= LOG_ENRICHMENT_ATTEMPTS; attempt++) {
       enrichmentAttempts = attempt;
       try {
-        const serverLogs = await fetchWorkerLogs(
+        const fetchedLogs = await fetchWorkerLogs(
           scenarioStart,
           scenarioEnd,
           config.runId,
           config.traceId
         );
-        if (Object.keys(serverLogs).length > 0) {
-          artifact.server_logs = serverLogs;
-          break;
-        }
+        mergedLogs = mergeServerLogs(mergedLogs, fetchedLogs);
+        actualWorkers = Object.keys(mergedLogs).sort();
+        missingWorkers = getMissingWorkers(expectedWorkers, actualWorkers);
+        if (missingWorkers.length === 0) break;
       } catch (err) {
         lastError = err as Error;
       }
@@ -190,7 +195,9 @@ export async function runScenario(
       }
     }
 
-    if (!artifact.server_logs) {
+    if (Object.keys(mergedLogs).length > 0) {
+      artifact.server_logs = mergedLogs;
+    } else {
       if (lastError) {
         artifact.notes.push(
           `Server log enrichment failed after ${enrichmentAttempts} attempts: ${lastError.message}`
@@ -202,9 +209,6 @@ export async function runScenario(
       }
     }
 
-    const expectedWorkers = inferExpectedWorkers(artifact);
-    const actualWorkers = getActualWorkers(artifact);
-    const missingWorkers = getMissingWorkers(expectedWorkers, actualWorkers);
     artifact.enrichment = {
       mode: "initial",
       attempts: enrichmentAttempts,

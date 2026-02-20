@@ -290,3 +290,95 @@ test("reenrich keeps best coverage after exhausting retries and records missing 
 
   fs.rmSync(runDir, { recursive: true, force: true });
 });
+
+test("reenrich accumulates worker coverage across attempts", async () => {
+  const runId = `test-enrich-merge-coverage-${Date.now()}`;
+  const traceId = "trace_merge_coverage_000";
+  const trace = makeTrace({
+    run_id: runId,
+    trace_id: traceId,
+    timestamp_utc: "2026-02-06T18:10:04.000Z",
+    duration_ms: 24000,
+    llm_response: {
+      response_id: "resp_1",
+      tool_calls: [{ tool_name: "get_user_session", args: {}, result_preview: "", result_full: "" }],
+      final_text: "",
+      raw_output: [],
+      usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+    },
+  });
+  const runDir = writeRun(runId, trace);
+
+  const prevArgv = [...process.argv];
+  const prevAccount = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const prevToken = process.env.CLOUDFLARE_API_TOKEN;
+  const prevAttempts = process.env.FLAIM_EVAL_REENRICH_ATTEMPTS;
+  const prevDelay = process.env.FLAIM_EVAL_REENRICH_DELAY_MS;
+  const prevExpand = process.env.FLAIM_EVAL_REENRICH_WINDOW_EXPAND_MS;
+  const originalFetch = globalThis.fetch;
+
+  process.argv = [process.argv[0] || "node", "enrich.ts", runId];
+  process.env.CLOUDFLARE_ACCOUNT_ID = "acc_123";
+  process.env.CLOUDFLARE_API_TOKEN = "token_123";
+  process.env.FLAIM_EVAL_REENRICH_ATTEMPTS = "4";
+  process.env.FLAIM_EVAL_REENRICH_DELAY_MS = "1";
+  process.env.FLAIM_EVAL_REENRICH_WINDOW_EXPAND_MS = "1000";
+
+  const attemptByWindow = new Map<string, number>();
+  let nextAttempt = 1;
+
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      parameters?: { filters?: Array<{ key: string; value?: string }> };
+      timeframe?: { from: number; to: number };
+    };
+
+    const workerName =
+      body.parameters?.filters?.find((f) => f.key === "$metadata.service")?.value || "";
+    const from = Number(body.timeframe?.from);
+    const to = Number(body.timeframe?.to);
+    const key = `${from}|${to}`;
+
+    let attempt = attemptByWindow.get(key);
+    if (!attempt) {
+      attempt = nextAttempt++;
+      attemptByWindow.set(key, attempt);
+    }
+
+    const events: unknown[] = [];
+    if (workerName === "auth-worker" && attempt === 1) {
+      events.push(makeEvent(workerName, runId, traceId, `${workerName}-a${attempt}`));
+    }
+    if (workerName === "fantasy-mcp" && attempt === 2) {
+      events.push(makeEvent(workerName, runId, traceId, `${workerName}-a${attempt}`));
+    }
+
+    return Response.json({
+      success: true,
+      errors: [],
+      result: { events: { count: events.length, events } },
+    });
+  };
+
+  try {
+    await runCli();
+  } finally {
+    process.argv = prevArgv;
+    process.env.CLOUDFLARE_ACCOUNT_ID = prevAccount;
+    process.env.CLOUDFLARE_API_TOKEN = prevToken;
+    process.env.FLAIM_EVAL_REENRICH_ATTEMPTS = prevAttempts;
+    process.env.FLAIM_EVAL_REENRICH_DELAY_MS = prevDelay;
+    process.env.FLAIM_EVAL_REENRICH_WINDOW_EXPAND_MS = prevExpand;
+    globalThis.fetch = originalFetch;
+  }
+
+  const updated = JSON.parse(
+    fs.readFileSync(path.join(runDir, traceId, "trace.json"), "utf8")
+  ) as TraceArtifact;
+
+  assert.equal(updated.enrichment?.attempts, 2);
+  assert.deepEqual(updated.enrichment?.actual_workers, ["auth-worker", "fantasy-mcp"]);
+  assert.deepEqual(updated.enrichment?.missing_workers, []);
+
+  fs.rmSync(runDir, { recursive: true, force: true });
+});
